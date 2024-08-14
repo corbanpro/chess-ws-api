@@ -15,7 +15,8 @@
     const room = `{{room}}`;
     const initNum = Math.random().toString().substring(5);
     const id = Math.random().toString().substring(2);
-    const url = `${proto}://127.0.0.1:8000/websocket/${room}/${id}`;
+    const host = window.location.host;
+    const url = `${proto}://${host}/websocket/${room}/${id}`;
     let imWhite = false;
     let team;
 

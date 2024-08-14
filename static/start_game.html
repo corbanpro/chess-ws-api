@@ -11,12 +11,13 @@
     const room = Math.random().toString().substring(2, 8);
     const id = Math.random().toString().substring(10);
     const proto = location.protocol.startsWith("https") ? "wss" : "ws";
+    const host = window.location.host;
 
     document.getElementById("room-code").innerText = room;
     connect();
 
     function connect() {
-      let url = `${proto}://127.0.0.1:8000/websocket/${room}/${id}`;
+      let url = `${proto}://${host}/websocket/${room}/${id}`;
       websocket = new WebSocket(url);
 
       websocket.onmessage = (e) => {
@@ -30,7 +31,7 @@
           messages.appendChild(message);
         }
         if (response.message_type === "join") {
-          window.location.href = `http://127.0.0.1:8000/game/${room}`;
+          window.location.href = `http://${host}/game/${room}`;
         }
       };
     }

@@ -32,10 +32,11 @@
     <script type="text/javascript">
       const id = Math.random().toString().substring(10);
       const proto = location.protocol.startsWith("https") ? "wss" : "ws";
+      const host = window.location.host;
       let websocket;
       function connect() {
         const room = document.querySelector("input[name=room]").value;
-        let url = `${proto}://127.0.0.1:8000/websocket/${room}/${id}`;
+        let url = `${proto}://${host}/websocket/${room}/${id}`;
         console.log(url);
         try {
           websocket = new WebSocket(url);

@@ -5,7 +5,8 @@
   <script>
     function JoinRoom() {
       let room = document.getElementById("room").value;
-      window.location.href = `http://127.0.0.1:8000/game/${room}`;
+      const host = window.location.host;
+      window.location.href = `http://${host}/game/${room}`;
     }
   </script>
 </body>
