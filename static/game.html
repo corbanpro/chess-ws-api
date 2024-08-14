@@ -10,7 +10,7 @@
     <div id="glass" class="glass"></div>
   </body>
   <script type="module">
-    import wasm_init, { Square, PieceType, Game, Team } from "/pkg/chess.js";
+    import wasm_init, { Square, PieceType, Game, Team } from "/chess.js";
     const proto = location.protocol.startsWith("https") ? "wss" : "ws";
     const room = `{{room}}`;
     const initNum = Math.random().toString().substring(5);
