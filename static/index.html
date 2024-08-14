@@ -1,92 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Websocket status page</title>
-  </head>
-  <body>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+    <title>Pro Chess</title>
     <style>
-      .chat-container {
-        display: flex;
-        flex-direction: column;
-        justify-content: end;
-        height: 90vh;
+      body {
+        text-align: center;
       }
-
-      .hidden {
-        display: none;
+      .btn-container {
+        display: flex;
+        justify-content: center;
+      }
+      .main-page-btn {
+        background-color: blue;
+        color: white;
+        text-decoration: none;
+        font-size: 30px;
+        width: 12em;
+        height: 4em;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 1em;
+        border-radius: 0.2em;
+        cursor: pointer;
       }
     </style>
-    <div id="before-connection">
-      <input type="text" name="room" />
-      <button type="submit" onclick="connect()">join</button>
+  </head>
+  <body id="body">
+    <h1>Welcome to Pro Chess</h1>
+    <div class="btn-container">
+      <div class="main-page-btn" hx-get="/local_game.html" hx-target="body">Play Local Game</div>
+      <div class="main-page-btn" hx-get="/start_game.html" hx-target="body">Start Game</div>
+      <div class="main-page-btn" hx-get="/join_game.html" hx-target="body">Join Game</div>
     </div>
-    <div id="after-connection" class="chat-container hidden">
-      <div id="messages"></div>
-      <input type="text" name="message" />
-      <button onclick="sendMessage()">send</button>
-    </div>
-
-    <script type="text/javascript">
-      const id = Math.random().toString().substring(10);
-      const proto = location.protocol.startsWith("https") ? "wss" : "ws";
-      let websocket;
-      function connect() {
-        const room = document.querySelector("input[name=room]").value;
-        let url = `${proto}://127.0.0.1:8000/websocket/${room}/${id}`;
-        console.log(url);
-        try {
-          websocket = new WebSocket(url);
-        } catch (e) {
-          console.log(e);
-        }
-
-        websocket.onopen = () => {
-          console.log("connection opened");
-
-          document.querySelector("#before-connection").classList.add("hidden");
-          document.querySelector("#after-connection").classList.remove("hidden");
-        };
-
-        websocket.onclose = () => {
-          console.log("connection closed");
-          document.querySelector("#before-connection").classList.remove("hidden");
-          document.querySelector("#after-connection").classList.add("hidden");
-        };
-
-        websocket.onmessage = (e) => {
-          const response = JSON.parse(e.data);
-          console.log(response);
-
-          if (response.message_type === "message") {
-            let messages = document.querySelector("#messages");
-            let message = document.createElement("div");
-            message.innerText = response.text;
-            messages.appendChild(message);
-          }
-        };
-      }
-      function sendMessage() {
-        const messageInput = document.querySelector("input[name=message]");
-        const message = messageInput.value;
-        messageInput.value = "";
-
-        let messagesContainer = document.querySelector("#messages");
-        let newMessage = document.createElement("div");
-        newMessage.innerText = message;
-        newMessage.style.textAlign = "right";
-        messagesContainer.appendChild(newMessage);
-
-        websocket.send(
-          JSON.stringify({
-            message_type: "message",
-            sender_id: Number(id),
-            text: message,
-          })
-        );
-      }
-    </script>
   </body>
 </html>

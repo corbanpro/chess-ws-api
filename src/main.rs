@@ -3,15 +3,15 @@ use axum::{
         ws::{Message, WebSocket},
         Path, WebSocketUpgrade,
     },
-    response::IntoResponse,
+    response::{Html, IntoResponse},
     routing::get,
     Extension, Router,
 };
-use futures::{SinkExt, StreamExt};
+use futures::{stream::SplitSink, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use shuttle_axum::ShuttleAxum;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, fs, sync::Arc, time::Duration};
 use tokio::{
     sync::{watch, Mutex},
     time::sleep,
@@ -22,7 +22,7 @@ use watch::Sender;
 
 #[derive(Debug, Clone)]
 struct Room {
-    players: Vec<i32>,
+    players: Vec<String>,
     room_tx: Sender<Message>,
     room_rx: Receiver<Message>,
 }
@@ -31,14 +31,14 @@ struct Room {
 struct State {
     clients_count: usize,
     global_rx: Receiver<Message>,
-    rooms: HashMap<i32, Room>,
+    rooms: HashMap<String, Room>,
 }
 
 #[derive(Deserialize, Serialize)]
 #[allow(dead_code)]
 struct UserMessage {
     message_type: String,
-    sender_id: i32,
+    sender_id: String,
     text: String,
 }
 
@@ -78,6 +78,7 @@ async fn main() -> ShuttleAxum {
 
     let router = Router::new()
         .route("/websocket/:room/:id", get(websocket_handler))
+        .route("/game/:room", get(enter_room))
         .nest_service("/", ServeDir::new("static"))
         .layer(Extension(state));
 
@@ -85,9 +86,22 @@ async fn main() -> ShuttleAxum {
 }
 
 #[derive(Deserialize)]
+struct EnterRoomRequest {
+    room: String,
+}
+
+async fn enter_room(Path(EnterRoomRequest { room }): Path<EnterRoomRequest>) -> impl IntoResponse {
+    Html(
+        fs::read_to_string("static/game.html")
+            .unwrap()
+            .replace("`{{room}}`", &room),
+    )
+}
+
+#[derive(Deserialize)]
 struct WsRequest {
-    id: i32,
-    room: i32,
+    id: String,
+    room: String,
 }
 
 async fn websocket_handler(
@@ -98,16 +112,18 @@ async fn websocket_handler(
     ws.on_upgrade(move |socket| websocket(socket, state, room, id))
 }
 
-async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: i32, id: i32) {
-    let (mut sender, mut receiver) = stream.split();
+async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: String, id: String) {
+    let (sender, mut receiver) = stream.split();
 
-    let (mut global_rx, mut room_rx, room_tx) = match join_room(state.clone(), room, id).await {
-        Ok(x) => x,
-        Err(()) => {
-            return;
-        }
-    };
+    let (mut global_rx, mut room_rx, room_tx, mut sender) =
+        match join_room(state.clone(), sender, room.clone(), id.clone()).await {
+            Ok(x) => x,
+            Err(()) => {
+                return;
+            }
+        };
 
+    let send_id = id.clone();
     let mut send_task = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -120,7 +136,7 @@ async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: i32, id: i
                 _ = room_rx.changed() => {
                     let msg = room_rx.borrow().clone();
 
-                    if serde_json::from_str::<UserMessage>(&msg.to_text().unwrap()).unwrap().sender_id == id {
+                    if serde_json::from_str::<UserMessage>(&msg.to_text().unwrap()).unwrap().sender_id == send_id {
                         continue;
                     }
 
@@ -133,6 +149,7 @@ async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: i32, id: i
     });
 
     let send_room_tx = room_tx.clone();
+    let send_room = room.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
             if serde_json::from_str::<UserMessage>(&text).is_err() {
@@ -140,7 +157,7 @@ async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: i32, id: i
                 continue;
             };
 
-            println!("sending message to room {}: {}", room, text);
+            println!("sending message to room {}: {}", send_room, text);
 
             if send_room_tx.send(Message::Text(text)).is_err() {
                 break;
@@ -158,13 +175,23 @@ async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: i32, id: i
 
 async fn join_room(
     state: Arc<Mutex<State>>,
-    room: i32,
-    id: i32,
-) -> Result<(Receiver<Message>, Receiver<Message>, Sender<Message>), ()> {
+    mut sender: SplitSink<WebSocket, Message>,
+    room: String,
+    id: String,
+) -> Result<
+    (
+        Receiver<Message>,
+        Receiver<Message>,
+        Sender<Message>,
+        SplitSink<WebSocket, Message>,
+    ),
+    (),
+> {
     let mut state_mut = state.lock().await;
+    let send_room = room.clone();
 
-    state_mut.rooms.entry(room).or_insert_with(|| {
-        println!("creating room: {}", room);
+    state_mut.rooms.entry(room.clone()).or_insert_with(|| {
+        println!("creating room: {}", send_room);
 
         let (room_tx, room_rx) = watch::channel(Message::Text("{}".to_string()));
         Room {
@@ -177,37 +204,49 @@ async fn join_room(
     if state_mut.rooms.get(&room).unwrap().players.len() < 2 {
         println!("player joined: room: {}, id: {}", room, id);
     } else {
+        let cancel_connection_msg = json!(UserMessage {
+            message_type: "error".to_string(),
+            sender_id: id,
+            text: "Game is full".to_string()
+        })
+        .to_string();
+
+        if sender
+            .send(Message::Text(cancel_connection_msg))
+            .await
+            .is_err()
+        {
+            println!("Error Sending Message")
+        }
         return Err(());
     };
 
     state_mut.clients_count += 1;
     let ws_room = state_mut.rooms.get_mut(&room).unwrap();
-    ws_room.players.push(id);
+    ws_room.players.push(id.clone());
     let room_tx = ws_room.room_tx.clone();
     let room_rx = ws_room.room_rx.clone();
     let global_rx = state_mut.global_rx.clone();
 
     let join_room_msg = json!(UserMessage {
         message_type: "join".to_string(),
-        sender_id: id,
+        sender_id: id.clone(),
         text: "joined the room".to_string(),
-    });
+    })
+    .to_string();
 
     drop(state_mut);
 
-    if room_tx
-        .send(Message::Text(join_room_msg.to_string()))
-        .is_err()
-    {
+    if room_tx.send(Message::Text(join_room_msg)).is_err() {
         println!("failed to send join message");
         leave_room(state, id, room, room_tx).await;
         return Err(());
     };
 
-    Ok((global_rx, room_rx, room_tx))
+    Ok((global_rx, room_rx, room_tx, sender))
 }
 
-async fn leave_room(state: Arc<Mutex<State>>, id: i32, room: i32, room_tx: Sender<Message>) {
+async fn leave_room(state: Arc<Mutex<State>>, id: String, room: String, room_tx: Sender<Message>) {
     println!("player left: id: {}, room: {}", id, room);
     let mut cleanup_state = state.lock().await;
     cleanup_state
@@ -215,7 +254,7 @@ async fn leave_room(state: Arc<Mutex<State>>, id: i32, room: i32, room_tx: Sende
         .get_mut(&room)
         .unwrap()
         .players
-        .retain(|&x| x != id);
+        .retain(|x| x != &id);
 
     if cleanup_state.rooms.get(&room).unwrap().players.len() == 0 {
         println!("deleting room: {}", room);
