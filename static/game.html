@@ -58,21 +58,17 @@
       function ProcessMessage({ message_type, sender_id, text }) {
         console.log({ message_type, sender_id, text });
         if (message_type === "init") {
-          if (game.move_num() > 0) {
-            SendMessage("reset", JSON.stringify(game));
+          console.log({ initNum, text });
+          if (Number(initNum) > Number(text)) {
+            imWhite = true;
+            team = 0;
+            myTurn();
           } else {
-            console.log({ initNum, text });
-            if (Number(initNum) > Number(text)) {
-              imWhite = true;
-              team = 0;
-              myTurn();
-            } else {
-              imWhite = false;
-              team = 1;
-              yourTurn();
-            }
-            update_board_display();
+            imWhite = false;
+            team = 1;
+            yourTurn();
           }
+          update_board_display();
         } else if (message_type === "move") {
           let { start, target, team } = JSON.parse(text);
           game.move_piece(Square.from_coords(start), Square.from_coords(target), team);
