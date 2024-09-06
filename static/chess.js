@@ -177,13 +177,6 @@ function getDataViewMemory0() {
     return cachedDataViewMemory0;
 }
 
-function _assertClass(instance, klass) {
-    if (!(instance instanceof klass)) {
-        throw new Error(`expected instance of ${klass.name}`);
-    }
-    return instance.ptr;
-}
-
 function getArrayJsValueFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     const mem = getDataViewMemory0();
@@ -193,12 +186,6 @@ function getArrayJsValueFromWasm0(ptr, len) {
     }
     return result;
 }
-/**
-*/
-export const PieceType = Object.freeze({ King:0,"0":"King",Queen:1,"1":"Queen",Bishop:2,"2":"Bishop",Knight:3,"3":"Knight",Rook:4,"4":"Rook",Pawn:5,"5":"Pawn", });
-/**
-*/
-export const Team = Object.freeze({ White:0,"0":"White",Black:1,"1":"Black", });
 
 const GameFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
@@ -262,12 +249,26 @@ export class Game {
         return ret !== 0;
     }
     /**
-    * @param {Team} team
-    * @returns {Square}
+    * @param {string} team_str
+    * @returns {string}
     */
-    find_king(team) {
-        const ret = wasm.game_find_king(this.__wbg_ptr, team);
-        return Square.__wrap(ret);
+    get_king_coords(team_str) {
+        let deferred2_0;
+        let deferred2_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(team_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.game_get_king_coords(retptr, this.__wbg_ptr, ptr0, len0);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            deferred2_0 = r0;
+            deferred2_1 = r1;
+            return getStringFromWasm0(r0, r1);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
     }
     /**
     * @returns {boolean}
@@ -284,48 +285,56 @@ export class Game {
         return ret !== 0;
     }
     /**
-    * @param {Square} start_sq
-    * @param {Team} team
-    * @returns {(Square)[]}
+    * @param {string} start_sq_str
+    * @param {string} team_str
+    * @returns {(string)[]}
     */
-    get_legal_moves(start_sq, team) {
+    get_legal_moves(start_sq_str, team_str) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            _assertClass(start_sq, Square);
-            var ptr0 = start_sq.__destroy_into_raw();
-            wasm.game_get_legal_moves(retptr, this.__wbg_ptr, ptr0, team);
+            const ptr0 = passStringToWasm0(start_sq_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(team_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len1 = WASM_VECTOR_LEN;
+            wasm.game_get_legal_moves(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-            var v2 = getArrayJsValueFromWasm0(r0, r1).slice();
+            var v3 = getArrayJsValueFromWasm0(r0, r1).slice();
             wasm.__wbindgen_free(r0, r1 * 4, 4);
-            return v2;
+            return v3;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
         }
     }
     /**
-    * @param {Team} team
+    * @param {string} team_str
     * @returns {boolean}
     */
-    has_last_rank_pawn(team) {
-        const ret = wasm.game_has_last_rank_pawn(this.__wbg_ptr, team);
+    has_last_rank_pawn(team_str) {
+        const ptr0 = passStringToWasm0(team_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.game_has_last_rank_pawn(this.__wbg_ptr, ptr0, len0);
         return ret !== 0;
     }
     /**
-    * @param {string} piece_type
-    * @param {Team} team
+    * @param {string} piece_type_str
+    * @param {string} team_str
     */
-    replace_last_rank_pawn(piece_type, team) {
-        const ptr0 = passStringToWasm0(piece_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    replace_last_rank_pawn(piece_type_str, team_str) {
+        const ptr0 = passStringToWasm0(piece_type_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        wasm.game_replace_last_rank_pawn(this.__wbg_ptr, ptr0, len0, team);
+        const ptr1 = passStringToWasm0(team_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.game_replace_last_rank_pawn(this.__wbg_ptr, ptr0, len0, ptr1, len1);
     }
     /**
-    * @param {Team} loser_team
+    * @param {string} loser_team_str
     * @returns {boolean}
     */
-    in_checkmate(loser_team) {
-        const ret = wasm.game_in_checkmate(this.__wbg_ptr, loser_team);
+    in_checkmate(loser_team_str) {
+        const ptr0 = passStringToWasm0(loser_team_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.game_in_checkmate(this.__wbg_ptr, ptr0, len0);
         return ret !== 0;
     }
     /**
@@ -334,18 +343,20 @@ export class Game {
         wasm.game_switch_turn(this.__wbg_ptr);
     }
     /**
-    * @param {Square} start_sq
-    * @param {Square} target_sq
-    * @param {Team} team
+    * @param {string} start_sq_str
+    * @param {string} target_sq_str
+    * @param {string} team_str
     */
-    move_piece(start_sq, target_sq, team) {
+    move_piece(start_sq_str, target_sq_str, team_str) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            _assertClass(start_sq, Square);
-            var ptr0 = start_sq.__destroy_into_raw();
-            _assertClass(target_sq, Square);
-            var ptr1 = target_sq.__destroy_into_raw();
-            wasm.game_move_piece(retptr, this.__wbg_ptr, ptr0, ptr1, team);
+            const ptr0 = passStringToWasm0(start_sq_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(target_sq_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len1 = WASM_VECTOR_LEN;
+            const ptr2 = passStringToWasm0(team_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len2 = WASM_VECTOR_LEN;
+            wasm.game_move_piece(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             if (r1) {
@@ -353,94 +364,6 @@ export class Game {
             }
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
-        }
-    }
-}
-
-const PieceFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_piece_free(ptr >>> 0, 1));
-/**
-*/
-export class Piece {
-
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        PieceFinalization.unregister(this);
-        return ptr;
-    }
-
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_piece_free(ptr, 0);
-    }
-}
-
-const SquareFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_square_free(ptr >>> 0, 1));
-/**
-*/
-export class Square {
-
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(Square.prototype);
-        obj.__wbg_ptr = ptr;
-        SquareFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        SquareFinalization.unregister(this);
-        return ptr;
-    }
-
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_square_free(ptr, 0);
-    }
-    /**
-    * @param {string} coords
-    * @returns {Square}
-    */
-    static from_coords(coords) {
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            const ptr0 = passStringToWasm0(coords, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            wasm.square_from_coords(retptr, ptr0, len0);
-            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
-            if (r2) {
-                throw takeObject(r1);
-            }
-            return Square.__wrap(r0);
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-        }
-    }
-    /**
-    * @returns {string}
-    */
-    to_coords() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.square_to_coords(retptr, this.__wbg_ptr);
-            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-            deferred1_0 = r0;
-            deferred1_1 = r1;
-            return getStringFromWasm0(r0, r1);
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
     }
 }
@@ -482,15 +405,11 @@ function __wbg_get_imports() {
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
     };
-    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
-        const ret = getStringFromWasm0(arg0, arg1);
-        return addHeapObject(ret);
-    };
     imports.wbg.__wbg_log_c018d1be03a5ab8d = function(arg0, arg1) {
         console.log(getStringFromWasm0(arg0, arg1));
     };
-    imports.wbg.__wbg_square_new = function(arg0) {
-        const ret = Square.__wrap(arg0);
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_object_clone_ref = function(arg0) {

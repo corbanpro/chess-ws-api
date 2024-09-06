@@ -1,0 +1,67 @@
+<body>
+  <h2>room code: <span id="room-code"></span></h2>
+  <div>waiting for opponent...</div>
+  <div class="loader-container">
+    <div class="loader"></div>
+  </div>
+
+  <script>
+    let websocket;
+    const room = Math.random().toString().substring(2, 8);
+    const id = Math.random().toString().substring(10);
+    const proto = location.protocol.startsWith("https") ? "wss" : "ws";
+    const host = window.location.host;
+    const ruleset = window.ruleset; // set in choose_game.html
+
+    document.getElementById("room-code").innerText = room;
+    connect();
+
+    function connect() {
+      let url = `${proto}://${host}/websocket/${room}/${id}/${ruleset}`;
+      try {
+        websocket = new WebSocket(url);
+      } catch (e) {
+        console.error(e);
+      }
+
+      websocket.onmessage = (e) => {
+        const response = JSON.parse(e.data);
+        console.log(response);
+
+        if (response.message_type === "message") {
+          let messages = document.querySelector("#messages");
+          let message = document.createElement("div");
+          message.innerText = response.text;
+          messages.appendChild(message);
+        }
+        if (response.message_type === "join") {
+          window.location.href = `http://${host}/game/${room}`;
+        }
+      };
+    }
+  </script>
+  <style>
+    .loader-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 1em;
+    }
+    .loader {
+      border: 16px solid #f3f3f3; /* Light grey */
+      border-top: 16px solid #3498db; /* Blue */
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</body>

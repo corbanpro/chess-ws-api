@@ -1,9 +1,12 @@
 <body>
   <h1>Join Game</h1>
-  <input type="text" id="room" placeholder="Enter Room Number" />
-  <input type="submit" value="Join" onclick="JoinRoom()" />
+  <form onsubmit="return JoinRoom(event)">
+    <input type="text" id="room" placeholder="Enter Room Number" />
+    <input type="submit" value="Join" onclick="return JoinRoom(event)" />
+  </form>
   <script>
-    function JoinRoom() {
+    function JoinRoom(e) {
+      e.preventDefault();
       let room = document.getElementById("room").value;
       const host = window.location.host;
       window.location.href = `http://${host}/game/${room}`;

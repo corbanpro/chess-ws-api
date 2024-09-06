@@ -22,6 +22,7 @@ use watch::Sender;
 
 #[derive(Debug, Clone)]
 struct Room {
+    rule_set: String,
     players: Vec<String>,
     room_tx: Sender<Message>,
     room_rx: Receiver<Message>,
@@ -77,7 +78,7 @@ async fn main() -> ShuttleAxum {
     });
 
     let router = Router::new()
-        .route("/websocket/:room/:id", get(websocket_handler))
+        .route("/websocket/:room/:id/:rule_set", get(websocket_handler))
         .route("/game/:room", get(enter_room))
         .nest_service("/", ServeDir::new("static"))
         .layer(Extension(state));
@@ -90,33 +91,53 @@ struct EnterRoomRequest {
     room: String,
 }
 
-async fn enter_room(Path(EnterRoomRequest { room }): Path<EnterRoomRequest>) -> impl IntoResponse {
-    Html(
+async fn enter_room(
+    Path(EnterRoomRequest { room }): Path<EnterRoomRequest>,
+    Extension(state): Extension<Arc<Mutex<State>>>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    let ws_room = state.rooms.get(&room);
+    if ws_room.is_none() {
+        return Err("Room does not exist".to_string());
+    }
+    let rule_set = ws_room.unwrap().rule_set.clone();
+    Ok(Html(
         fs::read_to_string("static/game.html")
             .unwrap()
-            .replace("`{{room}}`", &room),
-    )
+            .replace("{{room}}", &room)
+            .replace("{{ruleset}}", &rule_set),
+    ))
 }
 
 #[derive(Deserialize)]
 struct WsRequest {
     id: String,
     room: String,
+    rule_set: String,
 }
 
 async fn websocket_handler(
     ws: WebSocketUpgrade,
-    Path(WsRequest { room, id }): Path<WsRequest>,
+    Path(WsRequest { room, id, rule_set }): Path<WsRequest>,
     Extension(state): Extension<Arc<Mutex<State>>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| websocket(socket, state, room, id))
+    println!("websocket_handler");
+    ws.on_upgrade(move |socket| websocket(socket, state, room, id, rule_set))
 }
 
-async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: String, id: String) {
+async fn websocket(
+    stream: WebSocket,
+    state: Arc<Mutex<State>>,
+    room: String,
+    id: String,
+    rule_set: String,
+) {
+    println!("websocket");
+
     let (sender, mut receiver) = stream.split();
 
     let (mut global_rx, mut room_rx, room_tx, mut sender) =
-        match join_room(state.clone(), sender, room.clone(), id.clone()).await {
+        match join_room(state.clone(), sender, room.clone(), id.clone(), rule_set).await {
             Ok(x) => x,
             Err(()) => {
                 return;
@@ -136,7 +157,7 @@ async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: String, id
                 _ = room_rx.changed() => {
                     let msg = room_rx.borrow().clone();
 
-                    if serde_json::from_str::<UserMessage>(&msg.to_text().unwrap()).unwrap().sender_id == send_id {
+                    if serde_json::from_str::<UserMessage>(msg.to_text().unwrap()).unwrap().sender_id == send_id {
                         continue;
                     }
 
@@ -178,6 +199,7 @@ async fn join_room(
     mut sender: SplitSink<WebSocket, Message>,
     room: String,
     id: String,
+    rule_set: String,
 ) -> Result<
     (
         Receiver<Message>,
@@ -195,6 +217,7 @@ async fn join_room(
 
         let (room_tx, room_rx) = watch::channel(Message::Text("{}".to_string()));
         Room {
+            rule_set,
             players: Vec::new(),
             room_tx,
             room_rx,
@@ -256,7 +279,7 @@ async fn leave_room(state: Arc<Mutex<State>>, id: String, room: String, room_tx:
         .players
         .retain(|x| x != &id);
 
-    if cleanup_state.rooms.get(&room).unwrap().players.len() == 0 {
+    if cleanup_state.rooms.get(&room).unwrap().players.is_empty() {
         println!("deleting room: {}", room);
         cleanup_state.rooms.remove(&room);
     }

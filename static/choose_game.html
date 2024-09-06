@@ -1,0 +1,52 @@
+<body>
+  <h1>Start Game</h1>
+  <h3>Select Timer</h3>
+  <div class="btn-container">
+    <div id="none" class="timer main-page-btn active" onclick="SetTimer('none')">Untimed</div>
+    <div id="10" class="timer main-page-btn" onclick="SetTimer(10)">10 minutes</div>
+    <div id="5" class="timer main-page-btn" onclick="SetTimer(5)">5 minutes</div>
+    <div id="1" class="timer main-page-btn" onclick="SetTimer(1)">1 minute</div>
+  </div>
+  <h3>Select Game Mode</h3>
+  <div class="btn-container">
+    <div id="classic" class="gamemode main-page-btn active" onclick="SetGameMode('classic')">
+      Classic
+    </div>
+    <div id="shuffle" class="gamemode main-page-btn" onclick="SetGameMode('shuffle')">Shuffle</div>
+  </div>
+  <hr />
+  <div class="btn-container">
+    <div
+      class="main-page-btn"
+      hx-get="waiting_for_opponent.html"
+      hx-target="body"
+      onclick="Start()"
+    >
+      Start Game
+    </div>
+  </div>
+
+  <script>
+    let timer = 10;
+    let gameMode = "classic";
+
+    function SetTimer(gameTimer) {
+      timer = gameTimer;
+      document.querySelectorAll(".timer").forEach((elmt) => elmt.classList.remove("active"));
+      document.getElementById(timer).classList.add("active");
+    }
+    function SetGameMode(mode) {
+      gameMode = mode;
+      document.querySelectorAll(".gamemode").forEach((elmt) => elmt.classList.remove("active"));
+      document.getElementById(mode).classList.add("active");
+    }
+    function Start() {
+      window.ruleset = JSON.stringify({ timer, gameMode });
+    }
+  </script>
+  <style>
+    .active {
+      background-color: blueviolet;
+    }
+  </style>
+</body>

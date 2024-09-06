@@ -6,370 +6,93 @@
     <title>Pro Chess</title>
   </head>
   <body>
+    <a href="/" class="header">Home</a>
+    <div id="their-timer"></div>
     <div id="board" class="board"></div>
+    <div id="my-timer"></div>
     <div id="glass" class="glass"></div>
+    <script>
+      window.ruleset = JSON.parse(`{{ruleset}}`);
+      window.room = Number(`{{room}}`);
+    </script>
+    <script type="module" src="/main.js"></script>
+
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+      }
+      #board {
+        width: 12em;
+        height: 12em;
+        display: flex;
+        flex-wrap: wrap;
+        border: 1px solid #000;
+        margin-block: auto;
+        font-size: 4em;
+        user-select: none;
+        justify-content: center;
+        align-items: center;
+      }
+      .square {
+        min-width: 1.5em;
+        min-height: 1.5em;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .square.check {
+        background-color: rgb(255, 124, 124);
+      }
+      .piece {
+        display: block;
+        position: absolute;
+      }
+      .bg-dark {
+        background-color: rgb(188, 200, 255);
+      }
+      .bg-light {
+        background-color: white;
+      }
+      .highlight.bg-light {
+        background-color: rgb(252, 231, 207);
+      }
+      .highlight.bg-dark {
+        background-color: rgb(255, 205, 144);
+      }
+      .last-rank-pawn-modal {
+        position: absolute;
+        background-color: rgb(255, 245, 215);
+        font-size: 0.5em;
+        border: 1px solid grey;
+        border-radius: 0.3em;
+        overflow: hidden;
+      }
+      .pawn-modal-header {
+        padding-inline: 0.3em;
+        border-bottom: 1px solid grey;
+        padding-block: 0.1em;
+      }
+      .glass {
+        width: 100%;
+        position: absolute;
+        height: 100%;
+      }
+      .piece-btn {
+        padding-inline: 0.3em;
+        padding-block: 0.1em;
+        font-size: 25px;
+      }
+      .piece-btn:hover {
+        background-color: aliceblue;
+        cursor: pointer;
+      }
+      .header {
+        position: relative;
+        z-index: 10;
+      }
+    </style>
   </body>
-  <script type="module">
-    import wasm_init, { Square, PieceType, Game, Team } from "/chess.js";
-    const proto = location.protocol.startsWith("https") ? "wss" : "ws";
-    const room = `{{room}}`;
-    const initNum = Math.random().toString().substring(5);
-    const id = Math.random().toString().substring(2);
-    const host = window.location.host;
-    const url = `${proto}://${host}/websocket/${room}/${id}`;
-    let imWhite = false;
-    let team;
-
-    function myTurn() {
-      document.getElementById("glass").classList.remove("glass");
-    }
-    function yourTurn() {
-      document.getElementById("glass").classList.add("glass");
-    }
-    // const id = localStorage.getItem("id") ?? Math.random().toString().substring(10);
-    // localStorage.setItem("id", id);
-    let lastPing = Date.now();
-
-    wasm_init({}).then(() => {
-      let game = Game.init();
-      let dom_board = document.getElementById("board");
-      let dragged;
-      let websocket;
-
-      Connect();
-
-      function Connect() {
-        websocket = new WebSocket(url);
-
-        websocket.onopen = () => {
-          console.log("connected");
-          SendMessage("init", initNum);
-        };
-
-        websocket.onmessage = (e) => {
-          const message = JSON.parse(e.data);
-          if (message.is_up) {
-            lastPing = Date.now();
-          } else {
-            ProcessMessage(message);
-          }
-        };
-      }
-
-      function ProcessMessage({ message_type, sender_id, text }) {
-        console.log({ message_type, sender_id, text });
-        if (message_type === "init") {
-          console.log({ initNum, text });
-          if (Number(initNum) > Number(text)) {
-            imWhite = true;
-            team = 0;
-            myTurn();
-          } else {
-            imWhite = false;
-            team = 1;
-            yourTurn();
-          }
-          update_board_display();
-        } else if (message_type === "move") {
-          let { start, target, team } = JSON.parse(text);
-          game.move_piece(Square.from_coords(start), Square.from_coords(target), team);
-          myTurn();
-          update_board_display();
-        } else if (message_type === "leave") {
-        } else if (message_type === "pawnReplace") {
-          let {
-            move: { start, target, move_team },
-            pawn_replace: { piece_type, pawn_replace_team },
-          } = JSON.parse(text);
-          game.move_piece(Square.from_coords(start), Square.from_coords(target), move_team);
-          game.replace_last_rank_pawn(piece_type, pawn_replace_team);
-          myTurn();
-          update_board_display();
-        } else if (message_type === "join") {
-          SendMessage("init", initNum);
-        } else if (message_type === "reset") {
-          game = JSON.parse(text);
-        }
-      }
-
-      function SendMessage(message_type, text) {
-        websocket.send(
-          JSON.stringify({
-            message_type,
-            sender_id: id,
-            text,
-          })
-        );
-      }
-
-      update_board_display();
-
-      function update_board_display() {
-        while (dom_board.firstChild) {
-          dom_board.firstChild.remove();
-        }
-        let board = game.js_board();
-        if (imWhite) {
-          board = board.reverse();
-        }
-        board.forEach((rank, rank_index) => {
-          let rank_str = imWhite ? 8 - rank_index : rank_index + 1;
-          rank.forEach((piece, piece_index) => {
-            let bg_class = (piece_index + rank_index) % 2 ? "bg-light" : "bg-dark";
-
-            let dom_square = document.createElement("div");
-            dom_square.id = ["a", "b", "c", "d", "e", "f", "g", "h"][piece_index] + rank_str;
-            dom_square.classList.add("square");
-            dom_square.classList.add("dropzone");
-            dom_square.classList.add(bg_class);
-
-            let dom_piece = document.createElement("div");
-            dom_piece.id = dom_square.id;
-            dom_piece.classList.add("piece");
-            dom_piece.innerText = get_piece_char(piece);
-
-            dom_square.appendChild(dom_piece);
-            dom_board.appendChild(dom_square);
-          });
-        });
-
-        if (game.black_in_check()) {
-          if (game.in_checkmate(1)) {
-            alert("checkmate!");
-          }
-          let black_king = document.getElementById(game.find_king(1).to_coords());
-          black_king.classList.add("check");
-        } else if (game.white_in_check()) {
-          if (game.in_checkmate(0)) {
-            alert("checkmate!");
-          }
-          let white_king = document.getElementById(game.find_king(0).to_coords());
-          white_king.classList.add("check");
-        }
-        let pieces = document.querySelectorAll(".piece");
-        pieces.forEach((piece) => makeDragElement(piece));
-      }
-
-      function highlight_potential_squares(start_coords, team) {
-        game.get_legal_moves(Square.from_coords(start_coords), team).forEach((square) => {
-          return document.getElementById(square.to_coords()).classList.add("highlight");
-        });
-      }
-
-      async function onDragDrop(e) {
-        let target_sq = get_drag_target(e.clientX, e.clientY);
-        let start_sq = dragged;
-        console.log({ start: start_sq.id, target: target_sq.id, team });
-        try {
-          let start = Square.from_coords(start_sq.id);
-          let target = Square.from_coords(target_sq.id);
-          game.move_piece(start, target, team);
-          if (game.has_last_rank_pawn(team)) {
-            let last_rank_pawn_modal = document.createElement("div");
-            let header = document.createElement("div");
-            header.classList.add("pawn-modal-header");
-            header.innerText = "Pick a Piece";
-            last_rank_pawn_modal.appendChild(header);
-            last_rank_pawn_modal.classList.add("last-rank-pawn-modal");
-            let pawn_replace_pieces = [
-              ["♕", "Queen"],
-              ["♖", "Rook"],
-              ["♗", "Bishop"],
-              ["♘", "Knight"],
-            ];
-            for (let piece of pawn_replace_pieces) {
-              let piece_btn = document.createElement("div");
-              piece_btn.id = piece[1];
-              piece_btn.classList.add("piece-btn");
-              piece_btn.innerText = piece[0] + " " + piece[1];
-              piece_btn.onclick = (e) => change_pawn(e, piece_btn.id);
-              last_rank_pawn_modal.appendChild(piece_btn);
-            }
-            update_board_display();
-            let glass = document.createElement("div");
-            glass.classList.add("glass");
-            console.log(dom_board);
-            dom_board.appendChild(glass);
-            function change_pawn(e, piece_type) {
-              e.stopPropagation();
-              game.replace_last_rank_pawn(piece_type, team);
-              window.postMessage("change pawn");
-              SendMessage(
-                "pawnReplace",
-                JSON.stringify({
-                  move: { start: start_sq.id, target: target_sq.id, team },
-                  pawn_replace: {
-                    piece_type,
-                    team,
-                  },
-                })
-              );
-            }
-            document.onmouseup = null;
-            document.onmousemove = null;
-            dom_board.appendChild(last_rank_pawn_modal);
-            await new Promise((resolve, reject) => {
-              addEventListener("message", (e) => {
-                if (e.data === "change pawn") {
-                  resolve();
-                }
-              });
-            });
-          } else {
-            SendMessage("move", JSON.stringify({ start: start_sq.id, target: target_sq.id, team }));
-          }
-          yourTurn();
-        } catch (e) {
-          if (e !== "Error: Invalid Move") console.error(e);
-        }
-        update_board_display();
-        document.onmouseup = null;
-        document.onmousemove = null;
-        dragged = null;
-      }
-
-      function makeDragElement(elmnt) {
-        var pos1 = 0,
-          pos2 = 0,
-          pos3 = 0,
-          pos4 = 0;
-
-        elmnt.onmousedown = dragMouseDown;
-
-        function dragMouseDown(e) {
-          e = e || window.event;
-          dragged = e.target;
-          e.preventDefault();
-          highlight_potential_squares(e.target.id, team);
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          document.onmouseup = onDragDrop;
-          document.onmousemove = elementDrag;
-        }
-
-        function elementDrag(e) {
-          e = e || window.event;
-          e.preventDefault();
-          pos1 = pos3 - e.clientX;
-          pos2 = pos4 - e.clientY;
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          elmnt.style.top = elmnt.offsetTop - pos2 + "px";
-          elmnt.style.left = elmnt.offsetLeft - pos1 + "px";
-        }
-      }
-      function get_drag_target(x, y) {
-        let squares = document.querySelectorAll(".square");
-        for (let square of squares) {
-          let { left, right, top, bottom } = square.getBoundingClientRect();
-          if (x > left && x < right && y < bottom && y > top) {
-            return square;
-          }
-        }
-      }
-    });
-
-    function get_piece_char(piece) {
-      const chars = {
-        White: {
-          King: "♔",
-          Queen: "♕",
-          Rook: "♖",
-          Bishop: "♗",
-          Knight: "♘",
-          Pawn: "♙",
-        },
-        Black: {
-          King: "♚",
-          Queen: "♛",
-          Rook: "♜",
-          Bishop: "♝",
-          Knight: "♞",
-          Pawn: "♟",
-        },
-      };
-      return chars[piece?.team]?.[piece?.piece_type] ?? "";
-    }
-
-    setInterval(() => {
-      console.log("checking ping");
-      if (lastPing < Date.now() - 1000 * 16) {
-        alert("lost connection");
-      }
-    }, 1000 * 20);
-  </script>
-
-  <style>
-    body {
-      display: flex;
-      justify-content: center;
-      flex-direction: column;
-      align-items: center;
-    }
-    #board {
-      width: 12em;
-      height: 12em;
-      display: flex;
-      flex-wrap: wrap;
-      border: 1px solid #000;
-      margin-block: auto;
-      font-size: 4em;
-      user-select: none;
-      justify-content: center;
-      align-items: center;
-    }
-    .square {
-      min-width: 1.5em;
-      min-height: 1.5em;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .square.check {
-      background-color: rgb(255, 124, 124);
-    }
-    .piece {
-      display: block;
-      position: absolute;
-    }
-    .bg-dark {
-      background-color: rgb(188, 200, 255);
-    }
-    .bg-light {
-      background-color: white;
-    }
-    .highlight.bg-light {
-      background-color: rgb(252, 231, 207);
-    }
-    .highlight.bg-dark {
-      background-color: rgb(255, 205, 144);
-    }
-    .last-rank-pawn-modal {
-      position: absolute;
-      background-color: rgb(255, 245, 215);
-      font-size: 0.5em;
-      border: 1px solid grey;
-      border-radius: 0.3em;
-      overflow: hidden;
-    }
-    .pawn-modal-header {
-      padding-inline: 0.3em;
-      border-bottom: 1px solid grey;
-      padding-block: 0.1em;
-    }
-    .glass {
-      width: 100%;
-      position: absolute;
-      height: 100%;
-    }
-    .piece-btn {
-      padding-inline: 0.3em;
-      padding-block: 0.1em;
-      font-size: 25px;
-    }
-    .piece-btn:hover {
-      background-color: aliceblue;
-      cursor: pointer;
-    }
-  </style>
 </html>
