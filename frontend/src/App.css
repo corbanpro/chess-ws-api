@@ -1,1 +1,82 @@
+:root {
+  --board-width: 800px;
+  --potential-move-color: yellow;
+  --light-sq-color: white;
+  --dark-sq-color: plum;
+  --in-check-color: red;
+  --last-moved-to-color: green;
+  --last-moved-from-color: blue;
+  --attacking-color: orange;
+}
 
+.home-btn {
+  margin: 60px;
+  background-color: blue;
+  width: 800px;
+  height: 200px;
+  border-radius: 20px;
+}
+
+.home-btn-text {
+  color: white
+}
+
+.board-container {
+  margin-top: 69px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+.board {
+  width: var(--board-width);
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.rank {
+  width: var(--board-width);
+  display: flex;
+  flex-wrap: wrap;
+
+}
+
+.square {
+  width: calc(var(--board-width) / 8);
+  height: calc(var(--board-width) / 8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid black;
+  font-size: 80px;
+}
+
+
+.sq-light {
+  background-color: var(--light-sq-color);
+}
+
+.sq-dark {
+  background-color: var(--dark-sq-color);
+}
+
+.potential-move {
+  background-color: var(--potential-move-color);
+}
+
+.in-check {
+  background-color: var(--in-check-color);
+}
+
+.last-moved-to {
+  background-color: var(--last-moved-to-color);
+}
+
+.last-moved-from {
+  background-color: var(--last-moved-from-color);
+}
+
+.attacking {
+  background-color: var(--attacking-color)
+}

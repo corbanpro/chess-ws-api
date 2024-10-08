@@ -125,7 +125,7 @@ export function ProcessMessage(game, { message_type, text, myTime: oppTime }) {
 
   handlers.reset = () => {
     game = JSON.parse(text);
-    
+
     [game.mytime, game.theirTime] = [game.theirTime, game.myTime];
     game.myTurn = !game.myTurn;
     game.team = game.team === "White" ? "Black" : "White";
@@ -217,13 +217,13 @@ export async function ExecuteMove(game, startSq, targetSq) {
               team: game.myTeam,
             },
           }),
-          game.myTime
+          game.myTime,
         );
       }
       document.onmouseup = null;
       document.onmousemove = null;
       domBoard.appendChild(domLastRankPawnModal);
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve) => {
         addEventListener("message", (e) => {
           if (e.data === "change pawn") {
             resolve();
@@ -234,7 +234,7 @@ export async function ExecuteMove(game, startSq, targetSq) {
       SendMessage(
         "move",
         JSON.stringify({ start: startSq, target: targetSq, team: game.myTeam }),
-        game.myTime
+        game.myTime,
       );
     }
     yourTurn(game);
