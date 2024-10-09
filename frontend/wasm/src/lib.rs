@@ -542,8 +542,7 @@ impl Game {
         serde_json::to_string(self).unwrap()
     }
     pub fn from_dump(&mut self, dump: String) {
-        let replacement_game: Self = serde_json::from_str(&dump).unwrap();
-        *self = replacement_game;
+        *self = serde_json::from_str(&dump).unwrap();
     }
     pub fn is_white_turn(&self) -> bool {
         self.turn() == White

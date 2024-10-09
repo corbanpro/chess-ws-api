@@ -29,7 +29,7 @@ const router = createBrowserRouter([
     element: <Join />,
   },
   {
-    path: "/game",
+    path: "/onlinegame",
     element: (
       <GameWrapper>
         <OnlineGame />

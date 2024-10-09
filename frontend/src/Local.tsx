@@ -1,10 +1,17 @@
 import Board from "./Board.js";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { GameContext } from "./GameWrapper.js";
 
 let lastMoved = [["", ""]];
+let movedFrom = [""];
+let movedTo = [""];
 
 export default function Local() {
+  const [switchSides, setSwitchSides] = useState(false);
+  const [_, setCount] = useState(0);
+  function UpdateGame() {
+    setCount((prev) => prev + 1);
+  }
   let teamInCheck = "";
   let winningTeam = "";
 
@@ -16,11 +23,14 @@ export default function Local() {
     UpdateGame();
   }
 
-  const { game, UpdateGame } = useContext(GameContext);
+  const { game } = useContext(GameContext);
 
   function onPieceMove(start_sq_coords: string, end_sq_coords: string) {
     try {
       lastMoved = game.move_piece(start_sq_coords, end_sq_coords);
+      movedFrom = lastMoved.map((move) => move[0]);
+      movedTo = lastMoved.map((move) => move[1]);
+
       UpdateGame();
 
       teamInCheck = "";
@@ -42,10 +52,10 @@ export default function Local() {
         ) {
           setTimeout(ResetGame, 1);
         } else {
-          game.is_white_view = !game.is_white_view;
+          if (switchSides) game.is_white_view = !game.is_white_view;
         }
       } else {
-        game.is_white_view = !game.is_white_view;
+        if (switchSides) game.is_white_view = !game.is_white_view;
       }
     } catch (e) {
       console.log("invalid move");
@@ -53,5 +63,20 @@ export default function Local() {
     }
   }
 
-  return Board({ game, onPieceMove, lastMoved });
+  function ToggleSwitchSides() {
+    game.is_white_view = game.is_white_turn();
+    setSwitchSides((prev) => !prev);
+  }
+
+  return (
+    <div>
+      <div className="text-center m-5 display-1">Pro Chess</div>
+      <div className="m-5 text-center">
+        <button onClick={ToggleSwitchSides}>
+          {switchSides ? "Disable Side Switch" : "Enable Side Switch"}
+        </button>
+      </div>
+      <Board game={game} onPieceMove={onPieceMove} movedFrom={movedFrom} movedTo={movedTo} />
+    </div>
+  );
 }

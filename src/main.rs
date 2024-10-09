@@ -37,15 +37,15 @@ struct State {
 
 #[derive(Deserialize, Serialize)]
 #[allow(dead_code)]
-struct UserMessage {
-    message_type: String,
+struct WsMessage {
     sender_id: String,
-    text: String,
+    data: String,
 }
 
-#[derive(Serialize)]
-struct PingResponse {
-    is_up: bool,
+#[derive(Deserialize, Serialize)]
+struct SysMessage {
+    message_type: String,
+    text: String,
 }
 
 const PAUSE_SECS: u64 = 15;
@@ -65,8 +65,15 @@ async fn main() -> ShuttleAxum {
         let duration = Duration::from_secs(PAUSE_SECS);
 
         loop {
-            let response = PingResponse { is_up: true };
-            let msg = serde_json::to_string(&response).unwrap();
+            let msg = json!(WsMessage {
+                sender_id: "server".to_string(),
+                data: json!(SysMessage {
+                    message_type: "ping".to_string(),
+                    text: "is_up".to_string()
+                })
+                .to_string(),
+            })
+            .to_string();
             println!("clients count: {}", state_send.lock().await.clients_count);
 
             if global_tx.send(Message::Text(msg)).is_err() {
@@ -157,7 +164,7 @@ async fn websocket(
                 _ = room_rx.changed() => {
                     let msg = room_rx.borrow().clone();
 
-                    if serde_json::from_str::<UserMessage>(msg.to_text().unwrap()).unwrap().sender_id == send_id {
+                    if serde_json::from_str::<WsMessage>(msg.to_text().unwrap()).unwrap().sender_id == send_id {
                         continue;
                     }
 
@@ -173,10 +180,10 @@ async fn websocket(
     let send_room = room.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
-            if serde_json::from_str::<UserMessage>(&text).is_err() {
-                println!("invalid message: {}", text);
-                continue;
-            };
+            //if serde_json::from_str::<UserMessage>(&text).is_err() {
+            //println!("invalid message: {}", text);
+            //continue;
+            //};
 
             println!("sending message to room {}: {}", send_room, text);
 
@@ -227,10 +234,13 @@ async fn join_room(
     if state_mut.rooms.get(&room).unwrap().players.len() < 2 {
         println!("player joined: room: {}, id: {}", room, id);
     } else {
-        let cancel_connection_msg = json!(UserMessage {
-            message_type: "error".to_string(),
+        let cancel_connection_msg = json!(WsMessage {
             sender_id: id,
-            text: "Game is full".to_string()
+            data: json!(SysMessage {
+                message_type: "error".to_string(),
+                text: "Game is full".to_string()
+            })
+            .to_string()
         })
         .to_string();
 
@@ -251,10 +261,13 @@ async fn join_room(
     let room_rx = ws_room.room_rx.clone();
     let global_rx = state_mut.global_rx.clone();
 
-    let join_room_msg = json!(UserMessage {
-        message_type: "join".to_string(),
+    let join_room_msg = json!(WsMessage {
         sender_id: id.clone(),
-        text: "joined the room".to_string(),
+        data: json!(SysMessage {
+            message_type: "join".to_string(),
+            text: "joined the room".to_string()
+        })
+        .to_string()
     })
     .to_string();
 
@@ -286,10 +299,13 @@ async fn leave_room(state: Arc<Mutex<State>>, id: String, room: String, room_tx:
 
     cleanup_state.clients_count -= 1;
 
-    let leave_room_msg = json!(UserMessage {
-        message_type: "leave".to_string(),
+    let leave_room_msg = json!(WsMessage {
         sender_id: id,
-        text: "left the room".to_string(),
+        data: json!(SysMessage {
+            message_type: "leave".to_string(),
+            text: "left the room".to_string()
+        })
+        .to_string()
     });
 
     if room_tx

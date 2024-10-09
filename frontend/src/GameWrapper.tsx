@@ -1,6 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import { Game as WasmGame } from "../public/chess";
-import WasmInit from "../public/chess";
+import WasmInit, { Game as WasmGame } from "../wasm/pkg/chess.js";
 
 type TGameAddons = {
   is_white_view: boolean;

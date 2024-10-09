@@ -31,13 +31,6 @@ export function WebsocketInit(game) {
       ProcessMessage(game, message);
     }
   };
-
-  setInterval(() => {
-    console.log("checking ping");
-    if (lastPing < Date.now() - 1000 * 18) {
-      alert("lost connection");
-    }
-  }, 1000 * 5);
 }
 
 export function SendMessage(message_type, text, myTime) {
@@ -47,6 +40,6 @@ export function SendMessage(message_type, text, myTime) {
       sender_id: id,
       text,
       myTime,
-    })
+    }),
   );
 }

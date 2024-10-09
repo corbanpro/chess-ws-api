@@ -2,24 +2,36 @@ import { createContext, useContext, useRef } from "react";
 import Draggable from "react-draggable";
 import { TGame } from "./GameWrapper.js";
 
+import {
+  FaChessPawn,
+  FaChessRook,
+  FaChessKnight,
+  FaChessBishop,
+  FaChessKing,
+  FaChessQueen,
+} from "react-icons/fa";
+
 type TSquare = {
   piece_type: string;
   team: string;
 };
 
-const piece_icons: { [key: string]: string } = {
-  WhiteRook: "♖",
-  WhiteKnight: "♘",
-  WhiteBishop: "♗",
-  WhiteQueen: "♕",
-  WhiteKing: "♔",
-  WhitePawn: "♙",
-  BlackRook: "♜",
-  BlackKnight: "♞",
-  BlackBishop: "♝",
-  BlackQueen: "♛",
-  BlackKing: "♚",
-  BlackPawn: "♟",
+const whiteColor = "teal";
+const blackColor = "purple";
+
+const piece_icons: { [key: string]: React.ReactNode } = {
+  WhiteRook: <FaChessRook color={whiteColor} />,
+  WhiteKnight: <FaChessKnight color={whiteColor} />,
+  WhiteBishop: <FaChessBishop color={whiteColor} />,
+  WhiteQueen: <FaChessQueen color={whiteColor} />,
+  WhiteKing: <FaChessKing color={whiteColor} />,
+  WhitePawn: <FaChessPawn color={whiteColor} />,
+  BlackRook: <FaChessRook color={blackColor} />,
+  BlackKnight: <FaChessKnight color={blackColor} />,
+  BlackBishop: <FaChessBishop color={blackColor} />,
+  BlackQueen: <FaChessQueen color={blackColor} />,
+  BlackKing: <FaChessKing color={blackColor} />,
+  BlackPawn: <FaChessPawn color={blackColor} />,
 };
 
 type TDropHandler = (start_sq_coords: string, end_sq_coords: string) => void;
@@ -28,7 +40,8 @@ type TBoardContext = {
   onPieceMove: TDropHandler;
   game: TGame;
   king_coords: string[];
-  lastMoved: string[][];
+  movedTo: string[];
+  movedFrom: string[];
 };
 
 let BoardContext: React.Context<TBoardContext>;
@@ -36,17 +49,20 @@ let BoardContext: React.Context<TBoardContext>;
 export default function Board({
   game,
   onPieceMove,
-  lastMoved,
+  movedTo,
+  movedFrom,
 }: {
   game: TGame;
   onPieceMove: TDropHandler;
-  lastMoved: string[][];
+  movedTo: string[];
+  movedFrom: string[];
 }) {
   BoardContext = createContext<TBoardContext>({
     onPieceMove: () => {},
     game,
     king_coords: [],
-    lastMoved: lastMoved,
+    movedTo,
+    movedFrom,
   });
 
   if (!game) {
@@ -64,7 +80,7 @@ export default function Board({
   }
 
   return (
-    <BoardContext.Provider value={{ onPieceMove, game, king_coords, lastMoved }}>
+    <BoardContext.Provider value={{ onPieceMove, game, king_coords, movedTo, movedFrom }}>
       <div id="board-container" className="board-container">
         <div id="board" className="board position-relative">
           {board.map((rank, i) => (
@@ -100,7 +116,7 @@ function Square({
   file_index: number;
   rank_index: number;
 }) {
-  const { king_coords, game, lastMoved } = useContext(BoardContext);
+  const { king_coords, game, movedFrom, movedTo } = useContext(BoardContext);
   let piece_icon;
   let piece_name;
 
@@ -143,6 +159,7 @@ function Square({
 
     onPieceMove(squareId, end_sq_coords);
   }
+
   function onStart() {
     const potential_moves = game.get_legal_moves(squareId);
     potential_moves.forEach((move) => {
@@ -150,15 +167,24 @@ function Square({
     });
   }
 
-  const isInCheck = king_coords[0] === squareId;
-  const isAttacking = king_coords.slice(1).includes(squareId);
+  const isActiveStyle = game.is_white_turn() ? square?.team === "White" : square?.team === "Black";
+  const squareStyle = (rank_index + file_index) % 2 ? "sq-dark" : "sq-light";
+  const movedToStyle = movedTo.includes(squareId) ? "last-moved-to" : "";
+  const movedFromStyle = movedFrom.includes(squareId) ? "last-moved-from" : "";
+  const inCheckStyle = king_coords[0] === squareId ? "in-check" : "";
+  const isAttackingStyle = king_coords.slice(1).includes(squareId) ? "attacking" : "";
 
   return (
     <div
       id={squareId}
-      className={`square ${(rank_index + file_index) % 2 ? "sq-dark" : "sq-light"} ${isInCheck && "in-check"} ${lastMoved.flat().includes(squareId) && "last-moved"} ${isAttacking && "attacking"}`}
+      className={`square ${squareStyle} ${inCheckStyle} ${movedFromStyle} ${movedToStyle} ${isAttackingStyle}`}
     >
-      <Draggable nodeRef={draggableRef} onStop={onStop} onStart={onStart}>
+      <Draggable
+        nodeRef={draggableRef}
+        onStop={onStop}
+        onStart={onStart}
+        axis={isActiveStyle ? "both" : "none"}
+      >
         <div id={squareId} ref={draggableRef}>
           <div>{piece_icon}</div>
         </div>

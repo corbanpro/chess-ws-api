@@ -1,11 +1,12 @@
 :root {
   --board-width: 800px;
-  --potential-move-color: yellow;
+  --potential-move-color-dark: tan;
+  --potential-move-color-light: wheat;
   --light-sq-color: white;
   --dark-sq-color: plum;
   --in-check-color: red;
-  --last-moved-to-color: green;
-  --last-moved-from-color: blue;
+  --last-moved-to-color: mediumaquamarine;
+  --last-moved-from-color: mediumturquoise;
   --attacking-color: orange;
 }
 
@@ -22,12 +23,10 @@
 }
 
 .board-container {
-  margin-top: 69px;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-
 
 .board {
   width: var(--board-width);
@@ -49,9 +48,8 @@
   justify-content: center;
   align-items: center;
   border: 1px solid black;
-  font-size: 80px;
+  font-size: 60px;
 }
-
 
 .sq-light {
   background-color: var(--light-sq-color);
@@ -59,14 +57,6 @@
 
 .sq-dark {
   background-color: var(--dark-sq-color);
-}
-
-.potential-move {
-  background-color: var(--potential-move-color);
-}
-
-.in-check {
-  background-color: var(--in-check-color);
 }
 
 .last-moved-to {
@@ -79,4 +69,16 @@
 
 .attacking {
   background-color: var(--attacking-color)
+}
+
+.in-check {
+  background-color: var(--in-check-color);
+}
+
+.potential-move.sq-light {
+  background-color: var(--potential-move-color-light);
+}
+
+.potential-move.sq-dark {
+  background-color: var(--potential-move-color-dark);
 }
