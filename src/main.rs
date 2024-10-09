@@ -132,13 +132,7 @@ async fn websocket_handler(
     ws.on_upgrade(move |socket| websocket(socket, state, room, id, rule_set))
 }
 
-async fn websocket(
-    stream: WebSocket,
-    state: Arc<Mutex<State>>,
-    room: String,
-    id: String,
-    rule_set: String,
-) {
+async fn websocket(stream: WebSocket, state: Arc<Mutex<State>>, room: String, id: String, rule_set: String) {
     println!("websocket");
 
     let (sender, mut receiver) = stream.split();
@@ -244,11 +238,7 @@ async fn join_room(
         })
         .to_string();
 
-        if sender
-            .send(Message::Text(cancel_connection_msg))
-            .await
-            .is_err()
-        {
+        if sender.send(Message::Text(cancel_connection_msg)).await.is_err() {
             println!("Error Sending Message")
         }
         return Err(());
@@ -285,12 +275,7 @@ async fn join_room(
 async fn leave_room(state: Arc<Mutex<State>>, id: String, room: String, room_tx: Sender<Message>) {
     println!("player left: id: {}, room: {}", id, room);
     let mut cleanup_state = state.lock().await;
-    cleanup_state
-        .rooms
-        .get_mut(&room)
-        .unwrap()
-        .players
-        .retain(|x| x != &id);
+    cleanup_state.rooms.get_mut(&room).unwrap().players.retain(|x| x != &id);
 
     if cleanup_state.rooms.get(&room).unwrap().players.is_empty() {
         println!("deleting room: {}", room);
@@ -308,10 +293,7 @@ async fn leave_room(state: Arc<Mutex<State>>, id: String, room: String, room_tx:
         .to_string()
     });
 
-    if room_tx
-        .send(Message::Text(leave_room_msg.to_string()))
-        .is_err()
-    {
+    if room_tx.send(Message::Text(leave_room_msg.to_string())).is_err() {
         println!("failed to send leave message");
     }
 }
