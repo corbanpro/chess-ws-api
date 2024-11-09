@@ -49,11 +49,15 @@ let BoardContext: React.Context<TBoardContext>;
 export default function Board({
   game,
   onPieceMove,
+  onResign,
+  onRequestDraw,
   movedTo,
   movedFrom,
 }: {
   game: TGame;
   onPieceMove: TDropHandler;
+  onResign?: () => void;
+  onRequestDraw?: () => void;
   movedTo: string[];
   movedFrom: string[];
 }) {
@@ -88,6 +92,18 @@ export default function Board({
           ))}
         </div>
       </div>
+      {onResign && onRequestDraw && (
+        <div className="d-flex justify-content-center">
+          <div className="d-flex justify-content-between mt-4 w-100" style={{ maxWidth: "800px" }}>
+            <button className="btn btn-primary" onClick={onResign}>
+              Resign
+            </button>
+            <button className="btn btn-primary" onClick={onRequestDraw}>
+              Request Draw
+            </button>
+          </div>
+        </div>
+      )}
     </BoardContext.Provider>
   );
 }
@@ -140,11 +156,18 @@ function Square({
   const { onPieceMove } = useContext(BoardContext);
 
   const squareWidth = 100;
+
   function onStop(event: any) {
     document.querySelectorAll(".potential-move").forEach((el) => {
       el.classList.remove("potential-move");
     });
 
+    if (
+      (!game.is_white_view && square.team === "White") ||
+      (game.is_white_view && square.team === "Black")
+    ) {
+      return;
+    }
     event = event as MouseEvent;
     const { x: boardX, y: boardY } = document.getElementById("board")?.getBoundingClientRect() ?? {
       x: 0,
@@ -161,13 +184,16 @@ function Square({
   }
 
   function onStart() {
-    const potential_moves = game.get_legal_moves(squareId);
-    potential_moves.forEach((move) => {
-      document.getElementById(move)?.classList.add("potential-move");
-    });
+    if (isYourPiece) {
+      const potential_moves = game.get_legal_moves(squareId);
+      potential_moves.forEach((move) => {
+        document.getElementById(move)?.classList.add("potential-move");
+      });
+    }
   }
 
-  const isActiveStyle = game.is_white_turn() ? square?.team === "White" : square?.team === "Black";
+  const isYourTurn = game.is_white_turn() ? square?.team === "White" : square?.team === "Black";
+  const isYourPiece = square?.team === (game.is_white_view ? "White" : "Black");
   const squareStyle = (rank_index + file_index) % 2 ? "sq-dark" : "sq-light";
   const movedToStyle = movedTo.includes(squareId) ? "last-moved-to" : "";
   const movedFromStyle = movedFrom.includes(squareId) ? "last-moved-from" : "";
@@ -183,7 +209,7 @@ function Square({
         nodeRef={draggableRef}
         onStop={onStop}
         onStart={onStart}
-        axis={isActiveStyle ? "both" : "none"}
+        axis={isYourTurn && isYourPiece ? "both" : "none"}
       >
         <div id={squareId} ref={draggableRef}>
           <div>{piece_icon}</div>

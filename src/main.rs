@@ -3,27 +3,26 @@ use axum::{
         ws::{Message, WebSocket},
         Path, WebSocketUpgrade,
     },
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::get,
-    Extension, Router,
+    Extension, Json, Router,
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use shuttle_axum::ShuttleAxum;
-use std::{collections::HashMap, fs, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{
     sync::{watch, Mutex},
     time::sleep,
 };
-use tower_http::services::ServeDir;
 use watch::Receiver;
 use watch::Sender;
 
 #[derive(Debug, Clone)]
 struct Room {
-    rule_set: String,
     players: Vec<String>,
+    rule_set: String,
     room_tx: Sender<Message>,
     room_rx: Receiver<Message>,
 }
@@ -86,34 +85,28 @@ async fn main() -> ShuttleAxum {
 
     let router = Router::new()
         .route("/websocket/:room/:id/:rule_set", get(websocket_handler))
-        .route("/game/:room", get(enter_room))
-        .nest_service("/", ServeDir::new("static"))
+        .route("/getroomrules/:room_id", get(get_room_rules))
+        //.nest_service("/", ServeDir::new("static"))
         .layer(Extension(state));
 
     Ok(router.into())
 }
 
-#[derive(Deserialize)]
-struct EnterRoomRequest {
-    room: String,
-}
-
-async fn enter_room(
-    Path(EnterRoomRequest { room }): Path<EnterRoomRequest>,
+async fn get_room_rules(
+    Path(room_id): Path<String>,
     Extension(state): Extension<Arc<Mutex<State>>>,
 ) -> impl IntoResponse {
     let state = state.lock().await;
-    let ws_room = state.rooms.get(&room);
+    let ws_room = state.rooms.get(&room_id);
     if ws_room.is_none() {
-        return Err("Room does not exist".to_string());
+        return Err(Json(json!({"error": "Room does not exist".to_string()})));
     }
-    let rule_set = ws_room.unwrap().rule_set.clone();
-    Ok(Html(
-        fs::read_to_string("static/game.html")
-            .unwrap()
-            .replace("{{room}}", &room)
-            .replace("{{ruleset}}", &rule_set),
-    ))
+
+    let ws_room = ws_room.unwrap();
+
+    Ok(Json(json!({
+        "rule_set": ws_room.rule_set.clone()
+    })))
 }
 
 #[derive(Deserialize)]
@@ -218,10 +211,10 @@ async fn join_room(
 
         let (room_tx, room_rx) = watch::channel(Message::Text("{}".to_string()));
         Room {
-            rule_set,
             players: Vec::new(),
             room_tx,
             room_rx,
+            rule_set,
         }
     });
 
@@ -251,24 +244,6 @@ async fn join_room(
     let room_rx = ws_room.room_rx.clone();
     let global_rx = state_mut.global_rx.clone();
 
-    let join_room_msg = json!(WsMessage {
-        sender_id: id.clone(),
-        data: json!(SysMessage {
-            message_type: "join".to_string(),
-            text: "joined the room".to_string()
-        })
-        .to_string()
-    })
-    .to_string();
-
-    drop(state_mut);
-
-    if room_tx.send(Message::Text(join_room_msg)).is_err() {
-        println!("failed to send join message");
-        leave_room(state, id, room, room_tx).await;
-        return Err(());
-    };
-
     Ok((global_rx, room_rx, room_tx, sender))
 }
 
@@ -288,7 +263,7 @@ async fn leave_room(state: Arc<Mutex<State>>, id: String, room: String, room_tx:
         sender_id: id,
         data: json!(SysMessage {
             message_type: "leave".to_string(),
-            text: "left the room".to_string()
+            text: "Disconnected".to_string()
         })
         .to_string()
     });

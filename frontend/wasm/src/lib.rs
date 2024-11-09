@@ -1,10 +1,9 @@
-// wasm-pack build --target web
-
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use PieceType::*;
+use RuleSet::*;
 use Team::*;
 
 #[wasm_bindgen]
@@ -48,6 +47,12 @@ fn get_default_board() -> [[Option<Piece>; 8]; 8] {
     ]
 }
 
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
+enum RuleSet {
+    Standard,
+    Shuffled,
+}
+
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[wasm_bindgen]
 pub struct Game {
@@ -61,6 +66,7 @@ pub struct Game {
     en_passant_pawn: Option<Square>,
     turn: Team,
     move_num: u32,
+    rule_set: RuleSet,
 }
 
 #[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -121,6 +127,16 @@ impl Team {
     }
 }
 
+impl RuleSet {
+    fn from(rule_set_str: &str) -> Result<RuleSet, String> {
+        match rule_set_str {
+            "standard" => Ok(Standard),
+            "shuffled" => Ok(Shuffled),
+            _ => Err(rule_set_str.to_string()),
+        }
+    }
+}
+
 impl Piece {
     fn new(piece_type: PieceType, team: Team) -> Piece {
         Piece { piece_type, team }
@@ -136,6 +152,16 @@ impl Piece {
     }
     fn is_pawn(&self) -> bool {
         self.piece_type() == Pawn
+    }
+}
+
+impl Display for RuleSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let string = match self {
+            Standard => "standard",
+            Shuffled => "shuffled",
+        };
+        write!(f, "{:?}", string)
     }
 }
 
@@ -215,6 +241,9 @@ impl Game {
     }
     fn turn(&self) -> Team {
         self.turn
+    }
+    fn rule_set(&self) -> RuleSet {
+        self.rule_set
     }
     fn find_team_pieces(&self, team: Team) -> Vec<Square> {
         let mut pieces = vec![];
@@ -430,15 +459,14 @@ impl Game {
                 .is_none()
             {
                 potential_moves.push(Square::from_i32(single_move_rank, start_file).unwrap());
-            }
-
-            // double move
-            if start_rank == unmoved_rank
-                && self
-                    .get_piece(Square::from_i32(double_move_rank, start_file).unwrap())
-                    .is_none()
-            {
-                potential_moves.push(Square::from_i32(double_move_rank, start_file).unwrap());
+                // double move
+                if start_rank == unmoved_rank
+                    && self
+                        .get_piece(Square::from_i32(double_move_rank, start_file).unwrap())
+                        .is_none()
+                {
+                    potential_moves.push(Square::from_i32(double_move_rank, start_file).unwrap());
+                }
             }
 
             // on the right
@@ -509,7 +537,7 @@ impl Game {
             .iter()
             .position(|piece| piece.is_some() && piece.unwrap().is_pawn());
 
-        let black_rank_res = self.get_board()[0]
+        let black_rank_res = self.get_board()[7]
             .iter()
             .position(|piece| piece.is_some() && piece.unwrap().is_pawn());
 
@@ -522,9 +550,9 @@ impl Game {
         None
     }
     pub fn reset(&mut self) {
-        *self = Game::init();
+        *self = Game::init(self.rule_set().to_string());
     }
-    pub fn init() -> Game {
+    pub fn init(rule_set: String) -> Game {
         Game {
             board: get_default_board(),
             white_king_moved: false,
@@ -536,6 +564,7 @@ impl Game {
             en_passant_pawn: None,
             turn: White,
             move_num: 0,
+            rule_set: RuleSet::from(&rule_set).unwrap(),
         }
     }
     pub fn dump(&self) -> String {
@@ -566,10 +595,7 @@ impl Game {
             let winning_piece_squares = self.find_team_pieces(winner_team);
             let loser_king_sq = &self.find_king(loser_team);
             for winner_piece_sq in winning_piece_squares {
-                if self
-                    .get_possible_moves(winner_piece_sq)
-                    .contains(loser_king_sq)
-                {
+                if self.get_possible_moves(winner_piece_sq).contains(loser_king_sq) {
                     king_coords.push(loser_king_sq.coords());
                     attacking_pieces.push(winner_piece_sq.coords());
                 };
@@ -583,10 +609,7 @@ impl Game {
     pub fn in_check(&self, loser_team_str: &str) -> bool {
         let loser_team = Team::from(loser_team_str);
         if loser_team.is_err() {
-            console_log!(
-                "invalid team passed to in_checkmate: {:?}",
-                loser_team.unwrap()
-            );
+            console_log!("invalid team passed to in_checkmate: {:?}", loser_team.unwrap());
             panic!("invalid piece selected")
         }
         let loser_team = loser_team.unwrap();
@@ -595,10 +618,7 @@ impl Game {
         let winning_piece_squares = self.find_team_pieces(winner_team);
         let loser_king_sq = &self.find_king(loser_team);
         for winner_piece_sq in winning_piece_squares {
-            if self
-                .get_possible_moves(winner_piece_sq)
-                .contains(loser_king_sq)
-            {
+            if self.get_possible_moves(winner_piece_sq).contains(loser_king_sq) {
                 return true;
             };
         }
@@ -632,35 +652,27 @@ impl Game {
         legal_moves.retain(|possible_move| {
             // cannot move into check
             let test_game = self.move_piece_test(start_sq, *possible_move);
-            if (team.is_white() && test_game.in_check("White"))
-                || (team.is_black() && test_game.in_check("Black"))
-            {
+            if (team.is_white() && test_game.in_check("White")) || (team.is_black() && test_game.in_check("Black")) {
                 return false;
             }
 
             // cannot castle from check
             let piece = self.get_piece(start_sq).unwrap();
 
-            let attempting_castle =
-                piece.is_king() && start_sq.file_diff(possible_move.to_owned()) > 1;
+            let attempting_castle = piece.is_king() && start_sq.file_diff(possible_move.to_owned()) > 1;
 
-            let in_check = (team.is_white() && self.in_check("White"))
-                || (team.is_black() && self.in_check("Black"));
+            let in_check = (team.is_white() && self.in_check("White")) || (team.is_black() && self.in_check("Black"));
 
             if attempting_castle && in_check {
                 return false;
             }
 
             if attempting_castle {
-                let middle_sq = Square::from_usize(
-                    start_sq.rank(),
-                    (start_sq.file() + possible_move.file()) / 2,
-                )
-                .unwrap();
+                let middle_sq =
+                    Square::from_usize(start_sq.rank(), (start_sq.file() + possible_move.file()) / 2).unwrap();
                 let castle_test_game = self.move_piece_test(start_sq, middle_sq);
 
-                let castling_thru_check = self.turn().is_white()
-                    && castle_test_game.in_check("White")
+                let castling_thru_check = self.turn().is_white() && castle_test_game.in_check("White")
                     || self.turn().is_black() && castle_test_game.in_check("Black");
                 if castling_thru_check {
                     return false;
@@ -669,10 +681,7 @@ impl Game {
             true
         });
 
-        legal_moves
-            .iter()
-            .map(|possible_move| possible_move.coords())
-            .collect()
+        legal_moves.iter().map(|possible_move| possible_move.coords()).collect()
     }
     pub fn has_last_rank_pawn(&self) -> bool {
         self.find_last_rank_pawn().is_some()
@@ -697,10 +706,7 @@ impl Game {
     pub fn in_checkmate(&self, loser_team_str: &str) -> bool {
         let loser_team = Team::from(loser_team_str);
         if loser_team.is_err() {
-            console_log!(
-                "invalid team passed to in_checkmate: {:?}",
-                loser_team.unwrap()
-            );
+            console_log!("invalid team passed to in_checkmate: {:?}", loser_team.unwrap());
             panic!("invalid piece selected")
         }
         let loser_team = loser_team.unwrap();
@@ -709,26 +715,16 @@ impl Game {
         let mut test_game = *self;
         test_game.turn = loser_team;
         for loser_piece_sq in loser_piece_squares {
-            if !test_game
-                .get_legal_moves(&loser_piece_sq.coords())
-                .is_empty()
-            {
+            if !test_game.get_legal_moves(&loser_piece_sq.coords()).is_empty() {
                 checkmate = false;
                 return checkmate;
             }
         }
         checkmate
     }
-    pub fn move_piece(
-        &mut self,
-        start_sq_str: &str,
-        target_sq_str: &str,
-    ) -> Result<JsValue, String> {
+    pub fn move_piece(&mut self, start_sq_str: &str, target_sq_str: &str) -> Result<JsValue, String> {
         let mut last_moved_coords: Vec<Vec<String>> = vec![];
-        if !self
-            .get_legal_moves(start_sq_str)
-            .contains(&target_sq_str.to_string())
-        {
+        if !self.get_legal_moves(start_sq_str).contains(&target_sq_str.to_string()) {
             return Err("Error: Invalid Move".to_string());
         }
 
@@ -750,12 +746,8 @@ impl Game {
                 rook_end_file = 3;
             }
             last_moved_coords.push(vec![
-                Square::from_usize(target_sq.rank(), rook_start_file)
-                    .unwrap()
-                    .coords(),
-                Square::from_usize(target_sq.rank(), rook_end_file)
-                    .unwrap()
-                    .coords(),
+                Square::from_usize(target_sq.rank(), rook_start_file).unwrap().coords(),
+                Square::from_usize(target_sq.rank(), rook_end_file).unwrap().coords(),
             ]);
             let rook = self.board[target_sq.rank()][rook_start_file];
             self.board[target_sq.rank()][rook_start_file] = None;
@@ -763,10 +755,7 @@ impl Game {
         }
 
         // en passant
-        if piece.is_pawn()
-            && self.get_piece(target_sq).is_none()
-            && start_sq.file() != target_sq.file()
-        {
+        if piece.is_pawn() && self.get_piece(target_sq).is_none() && start_sq.file() != target_sq.file() {
             self.board[start_sq.rank()][target_sq.file()] = None;
         }
         // execute move

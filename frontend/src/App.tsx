@@ -1,11 +1,12 @@
 import "./App.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Home from "./Home";
-import Local from "./Local";
-import Start from "./Start";
+import LocalGame from "./LocalGame";
+import StartOnline from "./StartOnline";
 import Join from "./Join";
 import GameWrapper from "./GameWrapper";
 import OnlineGame from "./OnlineGame";
+import StartLocal from "./StartLocal";
 
 const router = createBrowserRouter([
   {
@@ -13,23 +14,27 @@ const router = createBrowserRouter([
     element: <Home />,
   },
   {
-    path: "/local",
+    path: "/startlocal",
+    element: <StartLocal />,
+  },
+  {
+    path: "/localgame/:rule_set",
     element: (
       <GameWrapper>
-        <Local />
+        <LocalGame />
       </GameWrapper>
     ),
   },
   {
-    path: "/start",
-    element: <Start />,
+    path: "/startonline",
+    element: <StartOnline />,
   },
   {
     path: "/join",
     element: <Join />,
   },
   {
-    path: "/onlinegame",
+    path: "/onlinegame/:rule_set/:room_id",
     element: (
       <GameWrapper>
         <OnlineGame />
