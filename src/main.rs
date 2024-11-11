@@ -3,11 +3,13 @@ use axum::{
         ws::{Message, WebSocket},
         Path, WebSocketUpgrade,
     },
+    http::HeaderValue,
     response::IntoResponse,
     routing::get,
     Extension, Json, Router,
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use shuttle_axum::ShuttleAxum;
@@ -16,6 +18,7 @@ use tokio::{
     sync::{watch, Mutex},
     time::sleep,
 };
+use tower_http::cors::CorsLayer;
 use watch::Receiver;
 use watch::Sender;
 
@@ -83,10 +86,19 @@ async fn main() -> ShuttleAxum {
         }
     });
 
+    let cors = CorsLayer::permissive();
+    //let cors = CorsLayer::new()
+    //    .allow_origin([
+    //        "http://127.0.0.1:5173".parse::<HeaderValue>().unwrap(),
+    //        "http://172.26.116.142:5173".parse::<HeaderValue>().unwrap(),
+    //        "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+    //    ])
+    //    .allow_methods([Method::GET, Method::POST]);
+
     let router = Router::new()
         .route("/websocket/:room/:id/:rule_set", get(websocket_handler))
         .route("/getroomrules/:room_id", get(get_room_rules))
-        //.nest_service("/", ServeDir::new("static"))
+        .layer(cors)
         .layer(Extension(state));
 
     Ok(router.into())
@@ -109,16 +121,9 @@ async fn get_room_rules(
     })))
 }
 
-#[derive(Deserialize)]
-struct WsRequest {
-    id: String,
-    room: String,
-    rule_set: String,
-}
-
 async fn websocket_handler(
     ws: WebSocketUpgrade,
-    Path(WsRequest { room, id, rule_set }): Path<WsRequest>,
+    Path((room, id, rule_set)): Path<(String, String, String)>,
     Extension(state): Extension<Arc<Mutex<State>>>,
 ) -> impl IntoResponse {
     println!("websocket_handler");

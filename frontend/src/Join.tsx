@@ -2,6 +2,7 @@ import { backendHost } from "../constants";
 
 export default function Join() {
   function JoinRoom(e: any) {
+    e.preventDefault();
     const roomId = e.target[0].value;
     fetch(`http://${backendHost}/getroomrules/${roomId}`)
       .then((res) => res.json())
