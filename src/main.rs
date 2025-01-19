@@ -3,13 +3,11 @@ use axum::{
         ws::{Message, WebSocket},
         Path, WebSocketUpgrade,
     },
-    http::HeaderValue,
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Extension, Json, Router,
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use shuttle_axum::ShuttleAxum;
@@ -98,10 +96,22 @@ async fn main() -> ShuttleAxum {
     let router = Router::new()
         .route("/websocket/:room/:id/:rule_set", get(websocket_handler))
         .route("/getroomrules/:room_id", get(get_room_rules))
+        .route("/health", post(health))
         .layer(cors)
         .layer(Extension(state));
 
     Ok(router.into())
+}
+
+#[derive(Deserialize)]
+struct HealthRequest {
+    status: String,
+}
+
+async fn health(Json(health_request): Json<HealthRequest>) -> impl IntoResponse {
+    Json(json!({
+        "status": health_request.status,
+    }))
 }
 
 async fn get_room_rules(
